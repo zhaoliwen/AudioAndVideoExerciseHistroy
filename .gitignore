@@ -1,0 +1,13 @@
+*.iml
+.gradle
+/local.properties
+/.idea/**
+/captures
+app/.cxx
+app/release
+**/build
+**/obj
+**/.idea
+**/Libuvccamera/**/*.so
+**/Libuvccamera/**/*.bat
+**/.cxx
