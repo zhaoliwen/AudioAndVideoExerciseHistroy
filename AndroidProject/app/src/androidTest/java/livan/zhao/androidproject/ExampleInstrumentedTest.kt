@@ -1,15 +1,11 @@
 package livan.zhao.androidproject
 
-import android.content.Context
 import android.util.Log
-import androidx.test.core.app.ApplicationProvider
-import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.ext.junit.runners.AndroidJUnit4
-
+import androidx.test.platform.app.InstrumentationRegistry
+import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith
-
-import org.junit.Assert.*
 import java.io.IOException
 
 /**
@@ -20,6 +16,7 @@ import java.io.IOException
 @RunWith(AndroidJUnit4::class)
 class ExampleInstrumentedTest {
     val TAG = "ExampleInstrumentedTest"
+    var nStartBit: Int = 0
     @Test
     fun useAppContext() {
         // Context of the app under test.
@@ -63,9 +60,39 @@ class ExampleInstrumentedTest {
         return buffer
     }
 
+    private fun readBitsAsInt(readBitNum: Int, h264: ByteArray): Int {
+        var dwRet = 0
+        for (i in 0 until readBitNum) {
+            dwRet = dwRet shl 1
+            /**
+             * nStartBit / 8 用于确定当前要读取的字节位置。
+             * nStartBit % 8 用来确定在这个字节内的具体比特位置。
+             */
+            if ((h264[nStartBit / 8].toInt() and (0x80 shr (nStartBit % 8))) != 0) {
+                dwRet += 1
+            }
+            nStartBit++
+        }
+        return dwRet
+    }
+
+    @Test
+    fun readBitsAsInt_Test(){
+        nStartBit = 4*8
+        val BYTES = 2000
+        var h264Buffer = get_H264File_bytes(BYTES)
+        val forbidden_zero_bit = readBitsAsInt(1, h264Buffer)
+        val nal_ref_idc = readBitsAsInt(2, h264Buffer)
+        val nal_unit_type = readBitsAsInt(5, h264Buffer)
+        assertEquals(forbidden_zero_bit,0)
+        assertEquals(nal_ref_idc,3)
+        assertEquals(nal_unit_type,7)
+        println("forbidden_zero_bit: $forbidden_zero_bit, nal_ref_idc: $nal_ref_idc, nal_unit_type: $nal_unit_type")
+    }
+
     @Test
     fun get_H264File_bytes_Test(){
-        val BYTES = 1000
+        val BYTES = 2000
         var buffer = get_H264File_bytes(BYTES)
         assertEquals(buffer.size, BYTES)
     }
