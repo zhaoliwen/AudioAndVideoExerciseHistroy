@@ -60,22 +60,23 @@ class ExampleInstrumentedTest {
         return buffer
     }
 
-    private fun readBitsAsInt(readBitNum: Int, h264: ByteArray): Int {
+    private fun readBitsAsInt(readBitNum: Int, buffer: ByteArray): Int {
         var dwRet = 0
         for (i in 0 until readBitNum) {
+            // 每次循环，dwRet 会左移 1 位（shl 1），为即将读取的新比特腾出空间。
             dwRet = dwRet shl 1
-            /**
+            /*
              * nStartBit / 8 用于确定当前要读取的字节位置。
              * nStartBit % 8 用来确定在这个字节内的具体比特位置。
              */
-            if ((h264[nStartBit / 8].toInt() and (0x80 shr (nStartBit % 8))) != 0) {
+            if ((buffer[nStartBit / 8].toInt() and (0x80 shr (nStartBit % 8))) != 0) {
                 dwRet += 1
             }
             nStartBit++
         }
         return dwRet
     }
-
+//===========================================Test================================================
     @Test
     fun readBitsAsInt_Test(){
         nStartBit = 4*8
