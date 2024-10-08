@@ -76,7 +76,72 @@ class ExampleInstrumentedTest {
         }
         return dwRet
     }
+
+    fun columbusDecode(pBuff: ByteArray): Int {
+        //        5位  8位的表示
+//统计0 的个数
+        var nZeroNum = 0
+        while (nStartBit < pBuff.size * 8) {
+            if ((pBuff[nStartBit / 8].toInt() and (0x80 shr (nStartBit % 8))) != 0) {
+                break
+            }
+            nZeroNum++
+            nStartBit++
+        }
+
+        nStartBit++
+        //跳出循环 到外面记录值  000 1  110      110
+//                    0001
+//        计算  101的十进制
+        var dwRet = 0 //1  0
+        for (i in 0 until nZeroNum) {
+            dwRet = dwRet shl 1 //0 <<1   1*2=2 11  0   3*2=6
+            if ((pBuff[nStartBit / 8].toInt() and (0x80 shr (nStartBit % 8))) != 0) {
+                dwRet += 1 //6+0 dwRet=6
+            }
+            nStartBit++
+        }
+        val value = (1 shl nZeroNum) - 1 + dwRet
+        return value
+    }
+
 //===========================================Test================================================
+    @Test
+    fun columbusDecode_Test(){
+        nStartBit = 4*8
+        val BYTES = 2000
+        var h264Buffer = get_H264File_bytes(BYTES)
+        val forbidden_zero_bit = readBitsAsInt(1, h264Buffer)
+        assertEquals(forbidden_zero_bit,0)
+
+        val nal_ref_idc = readBitsAsInt(2, h264Buffer)
+        assertEquals(nal_ref_idc,3)
+
+        val nal_unit_type = readBitsAsInt(5, h264Buffer)
+        assertEquals(nal_unit_type,7)
+
+        val profile_idc = readBitsAsInt(8, h264Buffer)
+        assertEquals(profile_idc,100)
+
+        val constraint_flag = readBitsAsInt(8, h264Buffer) // 约束标志
+        assertEquals(constraint_flag,0)
+
+        val level_idc = readBitsAsInt(8, h264Buffer) // 约束标志
+        assertEquals(level_idc,50)
+
+        val start_colubus_flag = columbusDecode(h264Buffer)
+        assertEquals(0, start_colubus_flag)
+
+        val chroma_format_idc = columbusDecode(h264Buffer)
+        assertEquals(1, chroma_format_idc)
+
+        println("forbidden_zero_bit: $forbidden_zero_bit, " +
+                "nal_ref_idc: $nal_ref_idc, " +
+                "nal_unit_type: $nal_unit_type,"+
+                "profile_idc: $profile_idc"
+        )
+    }
+
     @Test
     fun readBitsAsInt_Test(){
         nStartBit = 4*8
@@ -85,10 +150,16 @@ class ExampleInstrumentedTest {
         val forbidden_zero_bit = readBitsAsInt(1, h264Buffer)
         val nal_ref_idc = readBitsAsInt(2, h264Buffer)
         val nal_unit_type = readBitsAsInt(5, h264Buffer)
+        val profile_idc = readBitsAsInt(8, h264Buffer)
         assertEquals(forbidden_zero_bit,0)
         assertEquals(nal_ref_idc,3)
         assertEquals(nal_unit_type,7)
-        println("forbidden_zero_bit: $forbidden_zero_bit, nal_ref_idc: $nal_ref_idc, nal_unit_type: $nal_unit_type")
+        assertEquals(profile_idc,100)
+        println("forbidden_zero_bit: $forbidden_zero_bit, " +
+                "nal_ref_idc: $nal_ref_idc, " +
+                "nal_unit_type: $nal_unit_type,"+
+                "profile_idc: $profile_idc"
+        )
     }
 
     @Test
