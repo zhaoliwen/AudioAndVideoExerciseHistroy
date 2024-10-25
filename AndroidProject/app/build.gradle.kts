@@ -5,6 +5,7 @@ plugins {
 
 android {
     namespace = "livan.zhao.androidproject"
+    android.ndkVersion = "27.0.12077973"
     compileSdk = 34
 
     defaultConfig {
@@ -17,6 +18,10 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
             useSupportLibrary = true
+        }
+
+        ndk {
+            abiFilters.add("arm64-v8a")
         }
     }
 
@@ -47,6 +52,15 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
+
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+        }
+    }
+
+
+
 }
 
 dependencies {

@@ -1,12 +1,19 @@
 package livan.zhao.androidproject
 
+import android.media.MediaCodec
+import android.media.MediaExtractor
+import android.media.MediaFormat
 import android.util.Log
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.io.File
+import java.io.FileOutputStream
 import java.io.IOException
+import java.nio.ByteBuffer
+
 
 /**
  * Instrumented test, which will execute on an Android device.
@@ -27,11 +34,11 @@ class ExampleInstrumentedTest {
     fun get_H264File_bytes(BYTES:Int = 1000):ByteArray{
         /**
          * 获取src/main/assets目录中的资源文件
-         *
          * Context ctx = InstrumentationRegistry.getTargetContext();
-         * 获取src/androidTest/assets目录中的资源文件
          *
+         * 获取src/androidTest/assets目录中的资源文件
          * Context ctx = InstrumentationRegistry.getContext();
+         *
          * src/androidTest下创建assets目录可以通过new Disectory选择assets方式创建
          */
         val appContext = InstrumentationRegistry.getInstrumentation().context
@@ -105,7 +112,129 @@ class ExampleInstrumentedTest {
         return value
     }
 
+    @Throws(Exception::class)
+    fun decodeToPCM(musicPath: String?, outPath: String?, startTime: Int, endTime: Int) {
+        if (endTime < startTime) {
+            return
+        }
+        //    MP3  （zip  rar    ） ----> aac   封装个事 1   编码格式
+//        jie  MediaExtractor = 360 解压 工具
+        val mediaExtractor = MediaExtractor()
+
+        mediaExtractor.setDataSource(musicPath!!)
+        val audioTrack = selectTrack(mediaExtractor)
+
+        mediaExtractor.selectTrack(audioTrack)
+        // 视频 和音频
+        mediaExtractor.seekTo(startTime.toLong(), MediaExtractor.SEEK_TO_CLOSEST_SYNC)
+        // 轨道信息  都记录 编码器
+        val oriAudioFormat = mediaExtractor.getTrackFormat(audioTrack)
+        var maxBufferSize = 100 * 1000
+        maxBufferSize = if (oriAudioFormat.containsKey(MediaFormat.KEY_MAX_INPUT_SIZE)) {
+            oriAudioFormat.getInteger(MediaFormat.KEY_MAX_INPUT_SIZE)
+        } else {
+            100 * 1000
+        }
+        val buffer = ByteBuffer.allocateDirect(maxBufferSize)
+        //        h264   H265  音频
+        val mediaCodec = MediaCodec.createDecoderByType(oriAudioFormat.getString((MediaFormat.KEY_MIME))!!)
+        //        设置解码器信息    直接从 音频文件
+        mediaCodec.configure(oriAudioFormat, null, null, 0)
+        val pcmFile = File(outPath)
+        val writeChannel = FileOutputStream(pcmFile).channel
+        mediaCodec.start()
+        val info = MediaCodec.BufferInfo()
+        var outputBufferIndex = -1
+        while (true) {
+            val decodeInputIndex = mediaCodec.dequeueInputBuffer(100000)
+            if (decodeInputIndex >= 0) {
+                val sampleTimeUs = mediaExtractor.sampleTime
+
+                if (sampleTimeUs == -1L) {
+                    break
+                } else if (sampleTimeUs < startTime) {
+//                    丢掉 不用了
+                    mediaExtractor.advance()
+                    continue
+                } else if (sampleTimeUs > endTime) {
+                    break
+                }
+                //                获取到压缩数据
+                info.size = mediaExtractor.readSampleData(buffer, 0)
+                info.presentationTimeUs = sampleTimeUs
+                info.flags = mediaExtractor.sampleFlags
+
+                //                下面放数据  到dsp解码
+                val content = ByteArray(buffer.remaining())
+                buffer[content]
+                //                输出文件  方便查看
+//                FileUtils.writeContent(content);
+//                解码
+                val inputBuffer = mediaCodec.getInputBuffer(decodeInputIndex)
+                inputBuffer!!.put(content)
+                mediaCodec.queueInputBuffer(
+                    decodeInputIndex,
+                    0,
+                    info.size,
+                    info.presentationTimeUs,
+                    info.flags
+                )
+                //                释放上一帧的压缩数据
+                mediaExtractor.advance()
+            }
+
+            outputBufferIndex = mediaCodec.dequeueOutputBuffer(info, 100000)
+            while (outputBufferIndex >= 0) {
+                val decodeOutputBuffer = mediaCodec.getOutputBuffer(outputBufferIndex)
+                writeChannel.write(decodeOutputBuffer) //MP3  1   pcm2
+                mediaCodec.releaseOutputBuffer(outputBufferIndex, false)
+                outputBufferIndex = mediaCodec.dequeueOutputBuffer(info, 100000)
+            }
+        }
+        writeChannel.close()
+        mediaExtractor.release()
+        mediaCodec.stop()
+        mediaCodec.release()
+        //        转换MP3    pcm数据转换成mp3封装格式
+//
+//        File wavFile = new File(Environment.getExternalStorageDirectory(),"output.mp3" );
+//        new PcmToWavUtil(44100,  AudioFormat.CHANNEL_IN_STEREO,
+//                2, AudioFormat.ENCODING_PCM_16BIT).pcmToWav(pcmFile.getAbsolutePath()
+//                , wavFile.getAbsolutePath());
+        Log.i(TAG, "mixAudioTrack: 转换完毕")
+    }
+
+    private fun selectTrack(mediaExtractor: MediaExtractor): Int {
+//获取每条轨道
+        val numTracks = mediaExtractor.trackCount
+        for (i in 0 until numTracks) {
+//            数据      MediaFormat
+            val format = mediaExtractor.getTrackFormat(i)
+            val mime = format.getString(MediaFormat.KEY_MIME)
+            if (mime!!.startsWith("audio/")) {
+                return i
+            }
+        }
+        return -1
+    }
+
 //===========================================Test================================================
+    @Test
+    fun decodeToPCM_Test(){
+        val appContext = InstrumentationRegistry.getInstrumentation().targetContext
+        val context = InstrumentationRegistry.getInstrumentation().context
+        val fileName = "TwentyThousand_go_downstairs.aac"
+        val inputStream = context.assets.open(fileName)
+        val tempFile = File(appContext.cacheDir, "temp_aac.aac")
+
+        FileOutputStream(tempFile).use { outputStream ->
+            inputStream.copyTo(outputStream)
+        }
+        println("${appContext.cacheDir.path}")
+
+        decodeToPCM(tempFile.absolutePath,"${appContext.filesDir.path}/TwentyThousand_go_downstairs_2_5.pcm",2000*1000,5000*1000)
+    }
+
     @Test
     fun columbusDecode_Test(){
         nStartBit = 4*8
@@ -126,7 +255,7 @@ class ExampleInstrumentedTest {
         val constraint_flag = readBitsAsInt(8, h264Buffer) // 约束标志
         assertEquals(constraint_flag,0)
 
-        val level_idc = readBitsAsInt(8, h264Buffer) // 约束标志
+        val level_idc = readBitsAsInt(8, h264Buffer) // 编码等级
         assertEquals(level_idc,50)
 
         val start_colubus_flag = columbusDecode(h264Buffer)
