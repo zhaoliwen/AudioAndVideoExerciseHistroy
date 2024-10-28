@@ -35,8 +35,11 @@ class MainActivity : ComponentActivity() {
 fun Greeting(name: String, modifier: Modifier = Modifier) {
     val myNativeClass = MyNativeClass()
     val result = myNativeClass.myNativeMethod(5)
+    val ffmpegInfo = myNativeClass.ffmpegInfo()
     Text(
-        text = "Hello $name!\nfrom native method result is $result",
+        text = "Hello $name!\n from native method result is $result" +
+                "\n" +
+                "ffmpeg info:\n $ffmpegInfo",
         modifier = modifier
     )
 }

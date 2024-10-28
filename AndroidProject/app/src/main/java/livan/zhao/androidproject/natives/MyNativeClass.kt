@@ -2,6 +2,7 @@ package livan.zhao.androidproject.natives
 
 class MyNativeClass {
     external fun myNativeMethod(param: Int): Int
+    external fun ffmpegInfo():String
 
     companion object {
         init {

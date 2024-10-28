@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.cli.jvm.main
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.jetbrains.kotlin.android)
@@ -21,7 +23,7 @@ android {
         }
 
         ndk {
-            abiFilters.add("arm64-v8a")
+            abiFilters.add("armeabi-v7a")
         }
     }
 
@@ -59,6 +61,12 @@ android {
         }
     }
 
+    sourceSets {
+        getByName("main") {
+            assets.srcDirs(arrayListOf("src/main/assets"))
+            jniLibs.srcDirs(arrayListOf("src/main/cpp/libs"))
+        }
+    }
 
 
 }
